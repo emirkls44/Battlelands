@@ -5,14 +5,17 @@ public class PlayerController : MonoBehaviour
 {
     [Header("Hareket ve UI Ayarlarý")]
     public float moveSpeed = 5f;
-    public SimpleJoystick leftJoystick;  // Sol Joystick referansý
-    public SimpleJoystick rightJoystick; // Sað Joystick referansý
+    public SimpleJoystick leftJoystick;
+    public SimpleJoystick rightJoystick;
+
+    [Header("Animasyon")]
+    public Animator anim; // ÝÞTE EKSÝK OLAN KISIM BURASI
 
     [Header("Silah Ayarlarý")]
     public GameObject bulletPrefab;
     public Transform firePoint;
     public float bulletSpeed = 20f;
-    public float fireRate = 0.5f; // Saniyede kaç mermi atacak
+    public float fireRate = 0.5f;
     private float nextFireTime = 0f;
 
     private Rigidbody rb;
@@ -25,19 +28,16 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
-        // 1. MOBÝL HAREKET GÝRDÝSÝ (Sol Joystick'ten oku)
+        // 1. MOBÝL HAREKET GÝRDÝSÝ
         moveInput = new Vector3(leftJoystick.inputVector.x, 0f, leftJoystick.inputVector.y).normalized;
 
-        // 2. MOBÝL NÝÞAN VE ATEÞ ETME (Sað Joystick'ten oku)
+        // 2. MOBÝL NÝÞAN VE ATEÞ ETME
         Vector3 aimInput = new Vector3(rightJoystick.inputVector.x, 0f, rightJoystick.inputVector.y);
 
-        // Eðer sað joystick çekiliyorsa (parmak ekrandaysa)
         if (aimInput.magnitude > 0.1f)
         {
-            // Karakteri niþan alýnan yöne çevir
             transform.rotation = Quaternion.LookRotation(aimInput);
 
-            // Ateþ etme süresi geldiyse otomatik ateþ et
             if (Time.time >= nextFireTime)
             {
                 Shoot();
@@ -46,14 +46,18 @@ public class PlayerController : MonoBehaviour
         }
         else if (moveInput.magnitude > 0.1f)
         {
-            // Eðer ateþ edilmiyor ama yürünüyorsa, karakter yürüdüðü yöne baksýn
             transform.rotation = Quaternion.LookRotation(moveInput);
+        }
+
+        // 3. ANÝMASYONA HIZ VERÝSÝNÝ GÖNDER
+        if (anim != null)
+        {
+            anim.SetFloat("Speed", moveInput.magnitude);
         }
     }
 
     void FixedUpdate()
     {
-        // Fiziksel Hareketi Uygula
         rb.MovePosition(rb.position + moveInput * moveSpeed * Time.fixedDeltaTime);
     }
 
@@ -61,10 +65,14 @@ public class PlayerController : MonoBehaviour
     {
         GameObject bullet = Instantiate(bulletPrefab, firePoint.position, firePoint.rotation);
         Rigidbody bulletRb = bullet.GetComponent<Rigidbody>();
-
-        // Unity 6 linearVelocity
         bulletRb.linearVelocity = firePoint.forward * bulletSpeed;
-
         Destroy(bullet, 2f);
+    }
+
+    public void UpgradeWeapon()
+    {
+        fireRate = 0.15f;
+        bulletSpeed = 35f;
+        Debug.Log("Silah Yükseltildi! Seri Ateþ Modu Aktif.");
     }
 }
