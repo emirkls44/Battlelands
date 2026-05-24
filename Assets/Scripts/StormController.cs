@@ -3,57 +3,72 @@ using UnityEngine;
 public class StormController : MonoBehaviour
 {
     [Header("Fýrtýna Ayarlarý")]
-    public Transform player;
-    public float shrinkSpeed = 1f;    // Daralma hýzý
-    public float safeRadius = 25f;    // Baþlangýç çember yarýçapý
-    public float minimumRadius = 2f;  // Fýrtýnanýn duracaðý en küçük boyut
+    public float shrinkSpeed = 1.0f; // Alanýn saniyede ne kadar daralacaðý
+    public float minSize = 10f;      // Alanýn küçülebileceði en son boyut
+    public float stormDamage = 5f;   // Dýþarýda kalana saniyede verilecek hasar
 
-    [Header("Hasar Ayarlarý")]
-    public float stormDamage = 5f;    // Saniyede verilecek hasar
+    [Header("UI (Arayüz) Ayarlarý")]
+    public GameObject warningText;   // Ekranda çýkacak "FIRTINADA KALDIN!" yazýsý
+
+    private Transform player;
     private HealthController playerHealth;
-    private float damageTimer = 0f;
+    private float nextDamageTime = 0f;
 
     void Start()
     {
-        // Oyun baþladýðýnda oyuncunun üzerindeki HealthController kodunu otomatik bul ve hafýzaya al
-        if (player != null)
+        // Oyuncuyu bul ve can sistemini hafýzaya al
+        GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
+        if (playerObj != null)
         {
-            playerHealth = player.GetComponent<HealthController>();
+            player = playerObj.transform;
+            playerHealth = playerObj.GetComponent<HealthController>();
+        }
+
+        // Oyun baþlarken uyarý yazýsýný gizle (Sadece dýþarý çýkýnca görünsün)
+        if (warningText != null)
+        {
+            warningText.SetActive(false);
         }
     }
 
     void Update()
     {
-        // 1. Çemberi zamanla küçült
-        if (safeRadius > minimumRadius)
+        // 1. ALANI YAVAÞ YAVAÞ DARALT
+        if (transform.localScale.x > minSize)
         {
-            safeRadius -= shrinkSpeed * Time.deltaTime;
-            transform.localScale = new Vector3(safeRadius * 2, 15f, safeRadius * 2);
+            transform.localScale -= Vector3.one * shrinkSpeed * Time.deltaTime;
         }
 
-        // 2. Oyuncu fýrtýna dýþýnda mý kontrol et
+        // 2. OYUNCU ALANIN ÝÇÝNDE MÝ KONTROL ET
         if (player != null && playerHealth != null)
         {
-            float distanceFromCenter = Vector3.Distance(
-                new Vector3(player.position.x, 0, player.position.z),
-                new Vector3(transform.position.x, 0, transform.position.z)
+            // Fýrtýnanýn merkezi ile oyuncu arasýndaki yatay mesafeyi ölç
+            float distanceToPlayer = Vector3.Distance(
+                new Vector3(transform.position.x, 0, transform.position.z),
+                new Vector3(player.position.x, 0, player.position.z)
             );
 
-            // Eðer uzaklýk güvenli yarýçaptan büyükse, oyuncu fýrtýnanýn içindedir (dýþarýdadýr)
-            if (distanceFromCenter > safeRadius)
+            // Fýrtýnanýn o anki yarýçapý
+            float currentRadius = transform.localScale.x / 2f;
+
+            // Eðer oyuncu yarýçaptan daha uzaktaysa (Fýrtýnanýn dýþýnda kalmýþsa)
+            if (distanceToPlayer > currentRadius)
             {
-                // Her 1 saniyede bir hasar ver (Sayaç Mantýðý)
-                damageTimer += Time.deltaTime;
-                if (damageTimer >= 1f)
+                // YAZIYI GÖSTER
+                if (warningText != null) warningText.SetActive(true);
+
+                // Saniyede 1 kere hasar ver
+                if (Time.time >= nextDamageTime)
                 {
                     playerHealth.TakeDamage(stormDamage);
-                    damageTimer = 0f; // Sayacý sýfýrla ki bir sonraki saniyeyi beklesin
+                    Debug.Log("FIRTINADA KALDIN! " + stormDamage + " Hasar yedin.");
+                    nextDamageTime = Time.time + 1f;
                 }
             }
             else
             {
-                // Oyuncu güvenli alana geri dönerse sayacý sýfýrla
-                damageTimer = 0f;
+                // ÝÇERÝDEYSE YAZIYI GÝZLE
+                if (warningText != null) warningText.SetActive(false);
             }
         }
     }

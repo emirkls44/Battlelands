@@ -8,6 +8,10 @@ public class BulletController : MonoBehaviour
     // Mermi bir þeyin içinden geçerse/çarparsa bu fonksiyon çalýþýr
     void OnTriggerEnter(Collider other)
     {
+        // Eðer çarptýðýmýz þey çalýlýksa, onu görmezden gel ve içinden geç!
+        if (other.gameObject.CompareTag("Bush")) return;
+        // (Eðer OnTriggerEnter kullanýyorsan 'collision' yerine 'other' yaz).
+
         // Mermi kendi karakterimize (Player) çarpmasýn
         if (other.CompareTag("Player"))
             return;

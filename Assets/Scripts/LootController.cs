@@ -2,33 +2,54 @@ using UnityEngine;
 
 public class LootController : MonoBehaviour
 {
-    // Eþyanýn türünü Inspector'dan seçebilmek için bir liste oluþturuyoruz
-    public enum LootType { Medkit, Weapon }
+    public enum LootType { Health, Ammo }
+
+    [Header("Ganimet Ayarlarý")]
     public LootType type;
+    public int amount = 20;
 
-    public float healAmount = 50f; // Medkit ise ne kadar can verecek?
-
-    // Birisi (oyuncu) bu eþyanýn içinden geçerse...
     void OnTriggerEnter(Collider other)
     {
-        // Geçen kiþi Player mý?
         if (other.CompareTag("Player"))
         {
-            if (type == LootType.Medkit)
+            bool isCollected = false;
+
+            // 1. CAN KÝTÝ ALINDIYSA
+            if (type == LootType.Health)
             {
-                // Saðlýk kitiyse canýný doldur
                 HealthController health = other.GetComponent<HealthController>();
-                if (health != null) health.Heal(healAmount);
+                if (health != null)
+                {
+                    health.Heal(amount);
+                    Debug.Log("Can kiti alýndý! +" + amount);
+                    isCollected = true;
+                }
             }
-            else if (type == LootType.Weapon)
+            // 2. MERMÝ KUTUSU ALINDIYSA (Kritik baðlantý düzeltildi)
+            else if (type == LootType.Ammo)
             {
-                // Silahsa atýþ hýzýný artýr
-                PlayerController player = other.GetComponent<PlayerController>();
-                if (player != null) player.UpgradeWeapon();
+                PlayerShooting shooting = other.GetComponent<PlayerShooting>();
+                if (shooting != null)
+                {
+                    shooting.AddAmmo(amount); // Mermiyi ekle ve arayüzü yenile
+                    isCollected = true;
+                }
+                else
+                {
+                    // Eðer kod ana Player objesinde deðil de içindeki çocuk bir objedeyse üst babasýna bak
+                    PlayerShooting parentShooting = other.GetComponentInParent<PlayerShooting>();
+                    if (parentShooting != null)
+                    {
+                        parentShooting.AddAmmo(amount);
+                        isCollected = true;
+                    }
+                }
             }
 
-            // Etkiyi verdikten sonra eþyayý haritadan sil
-            Destroy(gameObject);
+            if (isCollected)
+            {
+                Destroy(gameObject);
+            }
         }
     }
 }

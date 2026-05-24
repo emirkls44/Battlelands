@@ -8,7 +8,7 @@ public class EnemyBulletController : MonoBehaviour
     void OnTriggerEnter(Collider other)
     {
         // Mermi baþka bir düþmana çarparsa hasar vermesin, pas geçsin
-        if (hasHit || other.CompareTag("Enemy") || other.CompareTag("Bullet"))
+        if (hasHit || other.CompareTag("Enemy") || other.CompareTag("gameObject"))
             return;
 
         // Çarptýðý þey gerçekten Player (Biz) isek canýmýzý azaltsýn

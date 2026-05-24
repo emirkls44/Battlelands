@@ -3,7 +3,6 @@ using UnityEngine.AI;
 
 public class EnemyController : MonoBehaviour
 {
-    // Düþmanýn yapabileceði durumlar
     public enum EnemyState { Patrolling, Chasing }
     private EnemyState currentState = EnemyState.Patrolling;
 
@@ -11,24 +10,27 @@ public class EnemyController : MonoBehaviour
     private Transform target;
     private HealthController playerHealth;
 
+    // YENÝ EKLENEN: Oyuncunun gizlilik kodunu okumak için
+    private PlayerHide playerHideScript;
+
     [Header("Animasyon")]
     public Animator anim;
 
     [Header("Görüþ ve Devriye Ayarlarý")]
-    public float detectionRadius = 12f; // Seni fark etme alaný (Sarý Çember)
-    public float patrolRadius = 10f;    // Kendi kendine takýlacaðý alanýn geniþliði
-    public float patrolWaitTime = 4f;   // Bir noktaya gidince ne kadar bekleyip yenisine geçeceði
+    public float detectionRadius = 12f;
+    public float patrolRadius = 10f;
+    public float patrolWaitTime = 4f;
     private float patrolTimer;
 
     [Header("Ateþ Etme Ayarlarý")]
-    public GameObject enemyBulletPrefab; // Yeni yaptýðýmýz EnemyBullet prefab'ý
-    public Transform firePoint;          // Silahýnýn ucu
-    public float shootDistance = 8f;     // Ateþ etme menzili (Kýrmýzý Çember)
-    public float fireRate = 0.8f;        // Ateþ etme sýklýðý
+    public GameObject enemyBulletPrefab;
+    public Transform firePoint;
+    public float shootDistance = 8f;
+    public float fireRate = 0.8f;
     public float bulletSpeed = 15f;
 
     [Range(0f, 0.4f)]
-    public float inaccuracySpread = 0.2f; // ISKALAMA AYARI! (Sayý büyürse daha çok ýskalar)
+    public float inaccuracySpread = 0.2f;
     private float nextFireTime = 0f;
 
     void Start()
@@ -41,9 +43,11 @@ public class EnemyController : MonoBehaviour
         {
             target = playerObj.transform;
             playerHealth = playerObj.GetComponent<HealthController>();
+
+            // Oyuncunun gizlilik kodunu bul ve hafýzaya al
+            playerHideScript = playerObj.GetComponent<PlayerHide>();
         }
 
-        // Oyuna baþlarken rastgele bir yere git emri ver
         SetRandomPatrolDestination();
     }
 
@@ -51,18 +55,22 @@ public class EnemyController : MonoBehaviour
     {
         if (target == null || agent == null) return;
 
-        // Oyuncuyla aradaki mesafeyi ölç
         float distanceToPlayer = Vector3.Distance(transform.position, target.position);
 
-        // DURUM KONTROLÜ: Alana girdi mi?
-        if (distanceToPlayer <= detectionRadius)
+        // GÝZLÝLÝK KONTROLÜ (YENÝ SÝSTEM)
+        // Eðer oyuncu görüþ alanýndaysa (detectionRadius) VE gizli DEÐÝLSE kovala!
+        bool isPlayerHidden = (playerHideScript != null && playerHideScript.isHidden);
+
+        if (distanceToPlayer <= detectionRadius && !isPlayerHidden)
         {
             currentState = EnemyState.Chasing;
         }
         else
         {
+            // Oyuncu uzaktaysa VEYA gizliyse (isHidden == true) devriyeye dön, onu boþver
             currentState = EnemyState.Patrolling;
         }
+
 
         // DURUMA GÖRE DAVRANMA
         if (currentState == EnemyState.Chasing)
@@ -74,20 +82,20 @@ public class EnemyController : MonoBehaviour
             PatrolLogic();
         }
 
-        // Animasyon Hýz Ayarý
         if (anim != null)
         {
             anim.SetFloat("Speed", agent.velocity.magnitude);
         }
     }
 
-    // --- KENDÝ KENDÝNE TAKILMA (LOOT/DEVRIYE) MANTIÐI ---
     void PatrolLogic()
     {
+        // Devriyeye döndüðünde dönüþ kilidini aç
+        agent.updateRotation = true;
         agent.isStopped = false;
+
         patrolTimer += Time.deltaTime;
 
-        // Bekleme süresi dolduysa yeni bir rastgele noktaya yürü
         if (patrolTimer >= patrolWaitTime)
         {
             SetRandomPatrolDestination();
@@ -100,27 +108,20 @@ public class EnemyController : MonoBehaviour
         Vector3 randomDirection = Random.insideUnitSphere * patrolRadius;
         randomDirection += transform.position;
         NavMeshHit hit;
-        // NavMesh üzerinde yürünebilir geçerli bir nokta bul
         if (NavMesh.SamplePosition(randomDirection, out hit, patrolRadius, 1))
         {
             agent.SetDestination(hit.position);
         }
     }
 
-    // --- KOVALAMA VE ATEÞ ETME MANTIÐI ---
     void ChaseAndShootLogic(float distanceToPlayer)
     {
-        // Eðer ateþ etme mesafesindeysek dur, oyuncuya dön ve ateþ et
         if (distanceToPlayer <= shootDistance)
         {
-            // 1. TAMAMEN DUR VE KAYMAYI KES
             agent.isStopped = true;
-            agent.velocity = Vector3.zero; // Momentum sýfýrlanýr, kayma/çember çizme engellenir!
-
-            // 2. NAVMESH'IN DÖNÜÞ KONTROLÜNÜ KAPAT (Kavgayý bitiren kod)
+            agent.velocity = Vector3.zero;
             agent.updateRotation = false;
 
-            // 3. YÜZÜNÜ OYUNCUYA DÖN (Artýk sadece bu kod çalýþacak)
             Vector3 direction = (target.position - transform.position).normalized;
             if (direction != Vector3.zero)
             {
@@ -128,7 +129,6 @@ public class EnemyController : MonoBehaviour
                 transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, Time.deltaTime * 10f);
             }
 
-            // 4. ATEÞ ET
             if (Time.time >= nextFireTime)
             {
                 ShootWithSpread();
@@ -137,9 +137,8 @@ public class EnemyController : MonoBehaviour
         }
         else
         {
-            // KOÞMAYA DEVAM ET (NavMesh'in kontrolünü geri ver)
             agent.isStopped = false;
-            agent.updateRotation = true; // Zeka tekrar aktif!
+            agent.updateRotation = true;
             agent.SetDestination(target.position);
         }
     }
@@ -150,11 +149,9 @@ public class EnemyController : MonoBehaviour
 
         if (firePoint == null || enemyBulletPrefab == null) return;
 
-        // Mermiyi yarat
         GameObject bullet = Instantiate(enemyBulletPrefab, firePoint.position, firePoint.rotation);
         Rigidbody bulletRb = bullet.GetComponent<Rigidbody>();
 
-        // ISKALAMA MANTIÐI: Düz giden oka rastgele saða/sola sapma (Spread) ekliyoruz
         Vector3 baseDirection = firePoint.forward;
         Vector3 randomSpread = new Vector3(
             Random.Range(-inaccuracySpread, inaccuracySpread),
@@ -163,17 +160,15 @@ public class EnemyController : MonoBehaviour
         );
         Vector3 finalDirection = (baseDirection + randomSpread).normalized;
 
-        // Mermiyi fýrlat (Unity 6 Hýz sistemi)
         bulletRb.linearVelocity = finalDirection * bulletSpeed;
         Destroy(bullet, 2f);
     }
 
-    // Editor ekranýnda alanlarý renkli çember olarak görmek için (Kolaylýk saðlar)
     void OnDrawGizmosSelected()
     {
-        Gizmos.color = Color.yellow; // Görüþ alaný sarý
+        Gizmos.color = Color.yellow;
         Gizmos.DrawWireSphere(transform.position, detectionRadius);
-        Gizmos.color = Color.red;    // Ateþ alaný kýrmýzý
+        Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, shootDistance);
     }
 }
